@@ -1,0 +1,22 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "noogic",
+  "owner": {
+    "name": "Joan Morell"
+  },
+  "metadata": {
+    "description": "Joan Morell's Claude Code plugins"
+  },
+  "plugins": [
+    {
+      "name": "test-dev",
+      "description": "Multi-stage test development workflow: explore, implement, run, review, fix. Orchestrates specialized agents to write high-quality tests.",
+      "version": "1.0.3",
+      "author": {
+        "name": "Joan Morell"
+      },
+      "source": "./plugins/test-dev",
+      "category": "development"
+    }
+  ]
+}
