@@ -1,0 +1,8 @@
+{
+  "name": "forge-dev",
+  "description": "Multi-stage feature implementation workflow for The Forge: explore codebase, implement features, test, review, fix. Orchestrates specialized agents to build high-quality Laravel + Vue + Inertia features from the project roadmap.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Joan Morell"
+  }
+}
