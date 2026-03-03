@@ -17,6 +17,16 @@
       },
       "source": "./plugins/test-dev",
       "category": "development"
+    },
+    {
+      "name": "forge-dev",
+      "description": "Multi-stage feature implementation workflow for The Forge. Orchestrates specialized agents to explore, implement, test, review, and fix.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Joan Morell"
+      },
+      "source": "./plugins/forge-dev",
+      "category": "development"
     }
   ]
 }
