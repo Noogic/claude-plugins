@@ -128,9 +128,39 @@ This is the most important checkpoint. It catches "nothing loads" and "wrong fea
 
 ---
 
-## Phase 5: Quality Review
+## Phase 5: Comprehensive Testing
 
-Launch **feature-reviewer agents in parallel** — one agent per created/modified file:
+After the verification gate passes, run comprehensive tests (unit, feature, and browser) in a **separate Claude session** to keep context clean. This uses the test-dev plugin's specialized agents.
+
+### Step 1: Prepare
+
+Identify the ticket file path for this milestone (e.g., `docs/tickets/m01-workspace.md`). The ticket's Test Coverage section contains the test items to implement.
+
+### Step 2: Invoke test-dev
+
+Run the test-dev workflow in a subprocess:
+
+```bash
+claude -p "Implement all tests from the Test Coverage section of [TICKET_FILE_PATH]. Read the ticket file first to understand the feature and find the test items (Unit, Feature, Browser). Use test-explorer agents to understand the source code and test patterns, test-implementer agents to write the tests, then run them. Review with test-reviewer agents and fix issues with test-fixer agents. Update the ticket's Test Coverage checkboxes when done." \
+  --allowedTools "Read,Write,Edit,Bash,Glob,Grep,Agent" \
+  --dangerously-skip-permissions
+```
+
+Replace `[TICKET_FILE_PATH]` with the actual ticket path.
+
+### Step 3: Verify
+
+After the subprocess completes:
+- Run `php artisan test` to confirm all tests pass
+- Read the ticket file to check which Test Coverage items were checked off
+- If tests fail, attempt trivial fixes; for substantial failures, delegate to a feature-fixer agent
+- Note any test items that were NOT implemented
+
+---
+
+## Phase 6: Quality Review
+
+Launch **feature-reviewer agents in parallel** — one agent per created/modified file (including test files from Phase 5):
 
 For each file, tell the agent:
 - "Review this file: [path]. It implements these items from the ticket: [list]. Verify correctness, convention adherence, and completeness against the ticket's Behavior and Interface Contract sections. Do NOT flag missing functionality for items outside this ticket's scope."
@@ -139,12 +169,12 @@ Wait for ALL reviewer agents to complete.
 
 After all reviewers complete:
 - Consolidate findings, filter to confidence >= 75
-- If no significant findings: skip Phase 6, go to Phase 7
-- If there ARE findings: present to user by severity, proceed to Phase 6
+- If no significant findings: skip Phase 7, go to Phase 8
+- If there ARE findings: present to user by severity, proceed to Phase 7
 
 ---
 
-## Phase 6: Fix Findings
+## Phase 7: Fix Findings
 
 **DO NOT fix findings yourself.** Launch a **feature-fixer agent** with:
 - All review findings (confidence >= 75)
@@ -156,7 +186,7 @@ After the fixer completes:
 
 ---
 
-## Phase 7: Finalize
+## Phase 8: Finalize
 
 1. Run the complete test suite:
    ```bash
@@ -176,9 +206,7 @@ After the fixer completes:
    - Test results (pass/fail counts)
    - Any items NOT implemented and why
    - Any TODOs or known limitations
-5. **Suggest comprehensive testing**:
-   - "To run comprehensive tests for this milestone, use: `/test-dev [paste the Test Coverage section from the ticket]`"
-   - The test-dev plugin will implement thorough test coverage using its specialized agents (test-explorer, test-implementer, test-reviewer, test-fixer)
+5. **Test coverage summary**: report which Test Coverage items from the ticket were completed (checked off by test-dev) and which remain unchecked
 6. **Next milestone**: show the name and brief description of what comes next
 7. Mark all todos complete
 
@@ -197,4 +225,4 @@ After the fixer completes:
 - **One reviewer per file.** Never send multiple files to a single reviewer.
 - **Fix only what's reported.** The fixer must not refactor beyond the findings.
 - **Be honest about failures.** Document what couldn't be done rather than hiding it.
-- **Leverage test-dev for comprehensive testing.** forge-dev writes basic tests during implementation. For thorough coverage, suggest the user runs `/test-dev` with the ticket's Test Coverage section.
+- **Comprehensive testing is automated.** After the verification gate, forge-dev invokes test-dev in a separate session to implement all tests from the ticket's Test Coverage section (unit, feature, and browser).

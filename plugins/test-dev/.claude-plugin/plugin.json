@@ -1,7 +1,7 @@
 {
   "name": "test-dev",
   "description": "Multi-stage test development workflow: explore, implement, run, review, fix. Orchestrates specialized agents to write high-quality tests.",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "author": {
     "name": "Joan Morell"
   }

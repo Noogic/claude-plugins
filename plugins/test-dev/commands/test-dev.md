@@ -15,12 +15,15 @@ The user has requested: "$ARGUMENTS"
 ## Phase 1: Understand the Request
 
 1. Create a todo list tracking all phases of this workflow.
-2. Read `tests/COVERAGE.md` to understand the test coverage matrix.
-3. Parse the user's request to identify:
-   - Which test area(s) to implement (e.g., "Appointments Feature API tests", "Exercises Unit tests")
+2. **Identify the source of test items**:
+   - **If the request references a ticket file** (e.g., `docs/tickets/m01-workspace.md`): read the **Test Coverage** section from that ticket. The ticket also provides feature context (Goal, Behavior, Data Model, Interface Contract) — use this to understand what's being tested.
+   - **If `tests/COVERAGE.md` exists** and no ticket is referenced: read the coverage matrix from there.
+   - **If neither exists**: stop and tell the user to provide either a ticket file path or a `tests/COVERAGE.md`.
+3. Parse the test items to identify:
+   - Which test area(s) to implement (e.g., "Workspace Feature tests", "Task Unit tests")
    - Whether it's Unit, Feature (API), or Browser tests
-   - The specific test items from COVERAGE.md that are currently unchecked `[ ]`
-4. If the request is ambiguous (e.g., "appointments tests" could mean Unit or Feature), present the options from COVERAGE.md and ask the user to confirm which specific tests to implement.
+   - The specific test items that are currently unchecked `[ ]`
+4. If the request is ambiguous (e.g., "workspace tests" could mean Unit or Feature), present the options and ask the user to confirm which specific tests to implement.
 5. Summarize what you'll implement. If there are more than 5 test items, confirm with the user before proceeding.
 
 ---
@@ -54,7 +57,7 @@ Based on the exploration findings, launch **test-implementer agent(s)**:
 - **Multiple areas**: Launch parallel test-implementer agents, one per area. Each gets the exploration context relevant to their area.
 
 Each agent receives in its prompt:
-- The specific test items to implement (copy the unchecked items from COVERAGE.md)
+- The specific test items to implement (copy the unchecked items from the ticket or COVERAGE.md)
 - The key files identified during exploration (list file paths)
 - Testing patterns and conventions found (describe them specifically)
 - Factory definitions and available test helpers
@@ -93,7 +96,7 @@ php artisan test path/to/test/file.php
 Launch **test-reviewer agents in parallel** — spawn **one agent per test file** created:
 
 For each test file, tell the agent:
-- "Review this test file: [path/to/file.php]. Check it against ONLY these specific COVERAGE.md items: [list items]. Do NOT flag missing coverage for other unchecked items in the same COVERAGE.md section — those are scheduled for separate implementation. Verify completeness against the listed items, correctness, and adherence to project conventions."
+- "Review this test file: [path/to/file.php]. Check it against ONLY these specific test items: [list items]. Do NOT flag missing coverage for other unchecked items — those are scheduled for separate implementation. Verify completeness against the listed items, correctness, and adherence to project conventions."
 
 Wait for ALL reviewer agents to complete.
 
@@ -128,9 +131,9 @@ After the fixer completes:
    ```bash
    php artisan test path/to/tests/
    ```
-2. Update `tests/COVERAGE.md`:
-   - Change `[ ]` to `[x]` for each test item that was successfully implemented
-   - Add the test file name reference after each item (e.g., `— NewTestFile.php`)
+2. **Update the test source** — check off completed items:
+   - If working from a **ticket file**: update the ticket's Test Coverage section, changing `[ ]` to `[x]` for each implemented item
+   - If working from **`tests/COVERAGE.md`**: update COVERAGE.md, changing `[ ]` to `[x]` and adding the test file reference (e.g., `— NewTestFile.php`)
 3. Present a summary:
    - Tests implemented (list of test items checked off)
    - Files created/modified
