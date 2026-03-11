@@ -10,8 +10,8 @@
   "plugins": [
     {
       "name": "test-dev",
-      "description": "Multi-stage test development workflow: explore, implement, run, review, fix. Orchestrates specialized agents to write high-quality tests.",
-      "version": "1.0.3",
+      "description": "Multi-stage test development workflow: explore, implement, run, review, fix. Orchestrates specialized agents to write high-quality tests. Accepts test items from ticket files or COVERAGE.md.",
+      "version": "1.1.0",
       "author": {
         "name": "Joan Morell"
       },
@@ -20,8 +20,8 @@
     },
     {
       "name": "forge-dev",
-      "description": "Multi-stage feature implementation workflow for The Forge. Orchestrates specialized agents to explore, implement, test, review, and fix.",
-      "version": "1.0.0",
+      "description": "Ticket-driven feature implementation workflow: generate roadmaps from specs, decompose into tickets, implement milestones as vertical slices, test, review, fix. Orchestrates specialized agents with verification gates and gap detection.",
+      "version": "2.1.0",
       "author": {
         "name": "Joan Morell"
       },

@@ -2,7 +2,7 @@
 name: test-reviewer
 description: "Reviews a SINGLE test file for completeness, correctness, hidden gaps, and adherence to project conventions. Spawn one instance per test file for parallel reviews."
 tools: Read, Grep, Glob, LS
-model: sonnet
+model: opus
 color: red
 ---
 
