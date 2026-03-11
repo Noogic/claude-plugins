@@ -486,11 +486,11 @@ No Vuex/Pinia. Use Inertia page props + provide/inject from layouts.
 
 ## Testing Patterns
 
-### Pest
+### Pest — Unit & Feature Tests
 
 - `tests/Feature/` for HTTP/integration tests
 - `tests/Unit/` for unit tests
-- `uses(RefreshDatabase::class)` for database tests
+- `uses(RefreshDatabase::class)` for database tests (unit and feature)
 - **Always freeze time** before using `now()`, `Carbon::now()`, etc.
 
 ```php
@@ -532,3 +532,176 @@ it('belongs to a workspace', function () {
     expect($project->workspace)->toBeInstanceOf(Workspace::class);
 });
 ```
+
+### Pest — Browser Tests (E2E with Playwright)
+
+Browser tests use Pest's browser plugin (`pestphp/pest-plugin-browser`) which runs Playwright under the hood. These tests verify real user interactions in a real browser.
+
+- `tests/Browser/` for browser/E2E tests, organized by feature area (`tests/Browser/Projects/`, `tests/Browser/Tasks/`, etc.)
+- **Must use `DatabaseTruncation`** (NOT `RefreshDatabase`) — browser tests make HTTP requests from a real browser, which runs in a separate process. Transactions from `RefreshDatabase` are not visible to the browser. `DatabaseTruncation` commits data so the browser can see it.
+- **Always check for JavaScript errors** with `assertNoJavascriptErrors()`
+- **Use `data-automation-*` attributes** for reliable element targeting (not CSS classes or text that may change)
+
+#### Pest.php configuration
+
+```php
+// tests/Pest.php
+
+pest()->extend(Tests\TestCase::class)
+    ->in('Feature', 'Unit', 'Browser');
+
+// Browser tests MUST use DatabaseTruncation for data visibility.
+uses(Illuminate\Foundation\Testing\DatabaseTruncation::class)
+    ->in('Browser');
+```
+
+#### Authentication helper
+
+For Inertia/Breeze apps with session-based auth, create a helper that logs in via the actual login page:
+
+```php
+// tests/Pest.php — helper function
+
+function authenticateAndVisit($test, User $user, string $path = '/'): \Pest\Browser\Api\PendingAwaitablePage
+{
+    /** @var \Pest\Browser\Api\PendingAwaitablePage $webpage */
+    $webpage = $test->visit('/login');
+    $webpage->waitForEvent('networkidle');
+
+    $webpage->page()->locator('[data-automation-field="email"]')->fill($user->email);
+    $webpage->page()->locator('[data-automation-field="password"]')->fill('password');
+    $webpage->page()->locator('[data-automation-submit="login"]')->click();
+    $webpage->waitForEvent('networkidle');
+
+    // Navigate to the target page after login
+    if ($path !== '/') {
+        $currentUrl = $webpage->url();
+        $baseUrl = preg_replace('/\/[^\/]*$/', '', $currentUrl);
+        $targetUrl = rtrim($baseUrl, '/') . $path;
+        $webpage->page()->goto($targetUrl);
+        $webpage->page()->waitForLoadState('networkidle');
+    }
+
+    return $webpage;
+}
+```
+
+#### Browser test example — CRUD flow
+
+```php
+use App\Models\User;
+use App\Models\Workspace;
+
+uses(Illuminate\Foundation\Testing\DatabaseTruncation::class);
+
+describe('Projects Page - Unauthenticated', function () {
+    it('redirects unauthenticated users to login', function () {
+        $this->visit('/projects')
+            ->assertPathIs('/login')
+            ->assertNoJavascriptErrors();
+    });
+});
+
+describe('Projects Page - List', function () {
+    it('displays the projects page for authenticated users', function () {
+        $user = User::factory()->create();
+        $workspace = Workspace::factory()->hasProjects(2)->create();
+        $workspace->members()->attach($user, ['role' => 'owner']);
+
+        authenticateAndVisit($this, $user, '/projects')
+            ->waitForEvent('networkidle')
+            ->assertNoJavascriptErrors()
+            ->assertSee('Projects');
+    });
+});
+
+describe('Projects - Create', function () {
+    it('can create a project via the form', function () {
+        $user = User::factory()->create();
+        $workspace = Workspace::factory()->create();
+        $workspace->members()->attach($user, ['role' => 'owner']);
+
+        /** @var \Pest\Browser\Api\PendingAwaitablePage $webpage */
+        $webpage = authenticateAndVisit($this, $user, '/projects');
+        $webpage->waitForEvent('networkidle');
+
+        // Click create button
+        $webpage->page()->locator('[data-automation-action="project-create"]')->click();
+
+        // Wait for form to appear
+        $webpage->page()->locator('[data-automation-form="project-persist"]')->waitFor(['timeout' => 5000]);
+
+        // Fill form fields
+        $webpage->page()->locator('[data-automation-field="project.name"]')->fill('New Project');
+        $webpage->page()->locator('[data-automation-field="project.description"]')->fill('A test project');
+
+        // Submit
+        $webpage->page()->locator('[data-automation-submit="project-persist"]')->click();
+        $webpage->waitForEvent('networkidle');
+
+        // Verify the project appears in the list
+        $webpage->assertSee('New Project')
+            ->assertNoJavascriptErrors();
+
+        // Verify backend
+        $this->assertDatabaseHas('projects', [
+            'name' => 'New Project',
+            'workspace_id' => $workspace->id,
+        ]);
+    });
+
+    it('shows validation error when name is empty', function () {
+        $user = User::factory()->create();
+        $workspace = Workspace::factory()->create();
+        $workspace->members()->attach($user, ['role' => 'owner']);
+
+        /** @var \Pest\Browser\Api\PendingAwaitablePage $webpage */
+        $webpage = authenticateAndVisit($this, $user, '/projects');
+        $webpage->waitForEvent('networkidle');
+
+        $webpage->page()->locator('[data-automation-action="project-create"]')->click();
+        $webpage->page()->locator('[data-automation-form="project-persist"]')->waitFor(['timeout' => 5000]);
+
+        // Submit without filling required fields
+        $webpage->page()->locator('[data-automation-submit="project-persist"]')->click();
+        $webpage->waitForEvent('networkidle');
+
+        // Validation error should appear
+        $webpage->page()->locator('[data-automation-form="project-persist"] .text-red-500')->first()->waitFor(['timeout' => 5000]);
+        $webpage->assertNoJavascriptErrors();
+    });
+});
+
+describe('Projects - Navigation', function () {
+    it('navigates to project detail when clicking a project', function () {
+        $user = User::factory()->create();
+        $workspace = Workspace::factory()->create();
+        $workspace->members()->attach($user, ['role' => 'owner']);
+        $project = Project::factory()->create(['workspace_id' => $workspace->id, 'name' => 'My Project']);
+
+        /** @var \Pest\Browser\Api\PendingAwaitablePage $webpage */
+        $webpage = authenticateAndVisit($this, $user, '/projects');
+        $webpage->waitForEvent('networkidle');
+
+        $webpage->click('My Project');
+        $webpage->waitForEvent('networkidle');
+
+        $webpage->assertPathIs("/projects/{$project->id}")
+            ->assertNoJavascriptErrors();
+    });
+});
+```
+
+#### Key patterns for browser tests
+
+- **`data-automation-*` attributes**: Use these for all interactive elements to ensure tests don't break when styling or text changes.
+  - `data-automation-action="project-create"` — buttons that trigger actions
+  - `data-automation-form="project-persist"` — form containers
+  - `data-automation-field="project.name"` — form input fields
+  - `data-automation-submit="project-persist"` — form submit buttons
+- **`waitForEvent('networkidle')`** — wait for all network requests to complete after navigation or form submission
+- **`assertNoJavascriptErrors()`** — always check for JS errors in every test
+- **`page()->locator()`** — use Playwright's locator API for precise element targeting
+- **`waitFor(['timeout' => 5000])`** — wait for elements to appear (for dynamic UI like modals, dialogs)
+- **`assertDatabaseHas()` / `assertDatabaseMissing()`** — verify backend state after browser actions
+- **One describe block per interaction group** — organize by: unauthenticated, list/read, create, edit, delete, navigation

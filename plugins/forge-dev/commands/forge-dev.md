@@ -1,23 +1,16 @@
 ---
-description: Implement features from the roadmap with automated exploration, implementation, testing, review, and fixes
+description: Implement a milestone from the roadmap with automated exploration, implementation, testing, review, and fixes
 ---
 
 # Feature Implementation Workflow
 
-You are orchestrating a multi-stage feature implementation workflow for **The Forge** project. Your job is to coordinate specialized agents to implement high-quality features from the project roadmap efficiently.
+You are orchestrating a multi-stage feature implementation workflow. Your job is to coordinate specialized agents to implement one roadmap milestone at a time, delivering complete, visible features.
 
 ## Project Context
 
-The Forge is a Laravel 12 + Vue 3 + Inertia v2 application. Key details:
-- **Backend**: Laravel 12, Pest tests, Actions for business logic, thin controllers, Form Requests
-- **Frontend**: Vue 3, Inertia v2, shadcn-vue (new-york-v4), Tailwind CSS v4, TypeScript
-- **Database**: MySQL (dev and test)
-- **Real-time**: Laravel Reverb, Echo
-- **Routes**: Wayfinder (typed route helpers)
-- **Design**: Linear-style dark theme (charcoal base, purple accent, monospace metadata, minimal borders)
-- **State**: No Vuex/Pinia — Inertia page props + provide/inject from layouts
-- **Forms**: useForm() from Inertia for all form submissions
+Read the project's docs to understand the stack and architecture:
 - **Spec**: `docs/specs.md` | **Architecture**: `docs/tech-stack.md` | **Roadmap**: `docs/ROADMAP.md`
+- **Conventions**: `docs/conventions.md` | **Tickets**: `docs/tickets/`
 
 ## Input
 
@@ -25,158 +18,183 @@ The user has requested: "$ARGUMENTS"
 
 ---
 
-## Phase 1: Understand the Request
+## Phase 1: Identify the Milestone
 
 1. Create a todo list tracking all phases of this workflow.
-2. Read `docs/ROADMAP.md` to understand the full implementation roadmap.
-3. Parse the user's request to identify:
-   - Which roadmap item(s) to implement (e.g., "1.1 Workspace & Members", "Migration: workspaces table")
-   - Whether it's backend, frontend, or both
-   - The specific unchecked `[ ]` items that need implementation
-4. If the request is ambiguous (e.g., "workspace stuff" could mean many items), present the matching items from ROADMAP.md and ask the user to confirm which specific items to implement.
-5. Summarize what you'll implement. If there are more than 8 items, confirm with the user before proceeding.
+2. Read `docs/ROADMAP.md` to find the next milestone to implement.
+   - If `docs/ROADMAP.md` doesn't exist, tell the user: "No roadmap found. Run `/forge-roadmap` first to generate one from your specs." Do not proceed without a roadmap.
+   - If the user specified a milestone: use that one.
+   - If the user said "next" or gave no specifics: find the first milestone with unchecked `[ ]` items.
+3. **Verify milestone ordering**: Check that all previous milestones are complete (`[x]`). If a prior milestone has unchecked items, warn the user — milestones should be completed in order. Suggest completing the earlier milestone first unless the user explicitly overrides.
+4. **Read the ticket file** for this milestone from `docs/tickets/`. The ticket contains all implementation details: behaviors, data model, interface contracts, test coverage, and verification checks.
+   - If no ticket file exists, tell the user: "No ticket found for this milestone. Run `/forge-ticket [milestone]` first to generate one." Do not proceed without a ticket.
+5. Summarize to the user:
+   - Milestone name and goal (from the ticket)
+   - Key deliverables
+   - Verification gate (what they'll see when it's done)
+   - Confirm before proceeding.
 
 ---
 
-## Phase 2: Codebase Exploration
+## Phase 2: Conventions & Codebase Exploration
 
-Launch **2-3 feature-explorer agents in parallel**, each with a different focus tailored to the feature area:
+### Step 1: Load Conventions (cached — runs once per project)
 
-- **Agent 1 (Source Context)**: "Explore the existing source code related to [feature area]. Find controllers, actions, models, migrations, routes, services, form requests, policies, and resources that already exist and are relevant to what we need to build. For frontend: find pages, components, layouts, composables, types. Trace key code paths. List the 5-10 most important files."
+Check if `docs/conventions.md` exists:
 
-- **Agent 2 (Patterns & Conventions)**: "Explore the existing codebase to understand how things are done. Study: file structure and naming, coding style, controller patterns (thin controllers + Actions), Form Request patterns, Inertia page/component patterns, shadcn-vue usage, factory patterns, test patterns (Pest). Find 3-5 files most similar to what we need to create for [feature area]. Also check route files, middleware, and any base classes or traits."
+- **If it exists** → Read it. Skip to Step 2.
+- **If it does NOT exist** → Determine if this is an existing or new project:
+  - Check for existing code (look for `app/Http/Controllers/`, `app/Models/`, `resources/js/pages/`, or `tests/`)
+  - **Existing project (has code)** → Launch a **feature-explorer agent** focused on conventions: "Explore the existing codebase to understand how things are done. Study: file structure and naming, coding style, controller patterns, Form Request patterns, page/component patterns, UI library usage, factory patterns, test patterns. Find 3-5 example files for each pattern. Output a comprehensive conventions document." Save the agent's output to `docs/conventions.md`.
+  - **New project (no code yet)** → Copy the bundled defaults from the plugin's `templates/conventions.md` to `docs/conventions.md`.
 
-- **Agent 3 (Dependencies)**: "Explore what [feature area] depends on. Find models, migrations, factories, and routes that already exist and that our implementation builds upon. Check database schema for existing tables we'll reference. Check existing enums, services, and any shared code. Document what exists and what's missing. Also read `docs/specs.md` and `docs/tech-stack.md` for architecture decisions relevant to this feature."
+### Step 2: Feature-Specific Exploration (always runs — varies per milestone)
+
+Launch **2 feature-explorer agents in parallel**, each focused on the specific milestone:
+
+- **Agent 1 (Source Context)**: "Explore the existing source code related to [milestone area]. Find controllers, actions, models, migrations, routes, form requests, policies, and resources that already exist and are relevant. For frontend: find pages, components, layouts, composables, types. Trace key code paths. List the 5-10 most important files."
+
+- **Agent 2 (Dependencies)**: "Explore what [milestone area] depends on. Find models, migrations, factories, and routes that already exist and that our implementation builds upon. Check database schema for existing tables we'll reference. Check existing enums, services, and any shared code. Document what exists and what's missing."
 
 After agents complete:
-- Read ALL the key files they identified (this is critical -- you need this context for implementation)
-- Build a comprehensive understanding of:
-  - The existing code and how it works
-  - The project's conventions and patterns (copy them exactly)
-  - Available factories, helpers, traits, and base classes
-  - Routes, middleware, validation patterns
-  - Database schema and relationships
-  - Frontend component patterns, layout usage, shadcn-vue usage
-  - What already exists vs what needs to be created
+- Read ALL the key files they identified (this is critical — you need this context for implementation)
+- Combine the conventions + ticket + exploration findings into a comprehensive understanding
 
 ---
 
 ## Phase 3: Implementation
 
-Based on the exploration findings, launch **feature-implementer agent(s)**:
+Implement the milestone as a **vertical slice** using the ticket as the source of truth.
 
-- **Backend-only items** (migrations, models, enums, factories, actions, controllers, requests, policies, tests): Launch 1 backend feature-implementer agent.
-- **Frontend-only items** (Vue pages, components, composables, types): Launch 1 frontend feature-implementer agent.
-- **Mixed items**: Launch both backend and frontend implementer agents in parallel if the work is independent (e.g., backend API + frontend page). If the frontend depends on backend (e.g., needs Inertia props from a controller), launch backend first, then frontend.
+**The ticket's Behavior, Data Model, and Interface Contract sections define exactly what to build.** The implementer agents should follow these specifications precisely.
+
+**Launch order:**
+1. **Backend first**: Launch 1 feature-implementer agent for migrations, models, enums, factories, actions, controllers, form requests, policies, routes, and backend tests.
+2. **Frontend second** (after backend completes): Launch 1 feature-implementer agent for pages, components, composables, TypeScript types, and frontend work. This agent receives the actual backend files just created (controllers, routes, resources) so the frontend matches the real API.
+
+If the milestone is backend-only (e.g., scaffold, infrastructure), skip the frontend agent.
 
 Each agent receives in its prompt:
-- The specific roadmap items to implement (copy the unchecked items from ROADMAP.md)
+- The ticket's relevant sections (Behavior, Data Model, Interface Contract, Scope, Constraints)
 - The key files identified during exploration (list file paths and summarize their content)
-- Patterns and conventions found (describe them specifically with examples)
+- Patterns and conventions from `docs/conventions.md`
 - Dependencies: what already exists and what the implementation builds upon
-- For backend: database schema, existing models/factories, route patterns, controller patterns, Action patterns, Form Request patterns
-- For frontend: existing page/component patterns, layout usage, shadcn-vue components used, useForm() patterns, TypeScript type patterns
+- For frontend: the actual backend files from step 1
 
-**CRITICAL**: Provide the agent with enough context to implement the feature WITHOUT needing to re-explore the codebase. Include file contents or detailed summaries from your exploration reads.
-
-Wait for ALL implementer agents to complete before proceeding.
+**CRITICAL**: Provide the agent with enough context to implement WITHOUT needing to re-explore. Include file contents or detailed summaries from your exploration reads.
 
 After implementation completes:
 - Read the implemented files to understand what was created
-- Note which files were created/modified and which roadmap items they cover
+- Note which files were created/modified
 
 ---
 
-## Phase 4: Test
+## Phase 4: Test & Verify
 
-Run the relevant tests to verify the implementation works:
+### Step 1: Automated Tests
 
-For **backend** changes:
+Run the tests created during implementation:
+
 ```bash
 php artisan test --filter=RelevantTestFile
 ```
 
-For **frontend** changes:
 ```bash
 npm run build
 ```
 
-- Run tests for each implemented file/area
 - If tests fail:
-  - Analyze the error messages carefully
-  - Fix obvious issues: missing imports, wrong method signatures, incorrect factory usage, typos, missing route definitions
+  - Analyze error messages carefully
+  - Fix obvious issues: missing imports, wrong method signatures, incorrect factory usage, typos
   - Re-run after each fix
-- If a test keeps failing after 3 fix attempts, comment it out with a `// TODO: fix - [reason]` comment and note it for the review phase
-- Continue until all tests pass (or are documented as blocked)
+- If a test keeps failing after 3 fix attempts, comment it out with `// TODO: fix - [reason]` and note it
+
+### Step 2: Verification Gate (MANDATORY)
+
+Read the ticket's **Verify** section. For each item:
+
+- **Automated checks** → Run the full test suite and build
+- **Browser/visual checks** → Present the description to the user and ask them to confirm manually
+
+**Do NOT proceed until the user confirms the verification gate passes.**
+
+If the user reports issues:
+1. Analyze the issue
+2. Delegate fixes to a feature-fixer agent (do not fix substantial issues yourself)
+3. Re-run tests
+4. Re-verify with the user
+
+This is the most important checkpoint. It catches "nothing loads" and "wrong feature" before more work is piled on top.
 
 ---
 
 ## Phase 5: Quality Review
 
-Launch **feature-reviewer agents in parallel** -- spawn **one agent per created/modified file**:
+Launch **feature-reviewer agents in parallel** — one agent per created/modified file:
 
 For each file, tell the agent:
-- "Review this file: [path/to/file]. This implements these specific ROADMAP.md items: [list items]. Do NOT flag missing functionality for other unchecked items in the same ROADMAP.md section -- those are scheduled for separate implementation. Verify correctness, convention adherence, and completeness against the listed items."
+- "Review this file: [path]. It implements these items from the ticket: [list]. Verify correctness, convention adherence, and completeness against the ticket's Behavior and Interface Contract sections. Do NOT flag missing functionality for items outside this ticket's scope."
 
 Wait for ALL reviewer agents to complete.
 
 After all reviewers complete:
-- Consolidate all findings across files
-- Filter to only findings with **confidence >= 75**
-- If there are NO significant findings, skip Phase 6 and go to Phase 7
-- If there ARE findings, present them to the user organized by severity (Critical then Important) and proceed to Phase 6
+- Consolidate findings, filter to confidence >= 75
+- If no significant findings: skip Phase 6, go to Phase 7
+- If there ARE findings: present to user by severity, proceed to Phase 6
 
 ---
 
 ## Phase 6: Fix Findings
 
-**DO NOT fix findings yourself.** You are the orchestrator -- you delegate, you do not implement. Launch a **feature-fixer agent** with:
-- All review findings (confidence >= 75) from Phase 5
+**DO NOT fix findings yourself.** Launch a **feature-fixer agent** with:
+- All review findings (confidence >= 75)
 - The file paths to fix
-- Key context from the exploration phase (relevant source code, conventions)
-
-The fixer should:
-- Address each finding systematically
-- Run the tests after fixes to ensure they still pass
-- Report what was fixed and what was skipped (with reason)
+- Key context from exploration + ticket
 
 After the fixer completes:
-- Verify all tests pass by running them one final time
+- Verify all tests pass one final time
 
 ---
 
 ## Phase 7: Finalize
 
-1. Run the complete test suite for all affected areas one final time:
+1. Run the complete test suite:
    ```bash
    php artisan test
    ```
-   And for frontend:
    ```bash
    npm run build
    ```
 2. Update `docs/ROADMAP.md`:
-   - Change `[ ]` to `[x]` for each roadmap item that was successfully implemented
+   - Change `[ ]` to `[x]` for each completed item in this milestone
    - Do NOT check off items that were not fully implemented
-3. Present a summary:
-   - Features implemented (list of roadmap items checked off)
+3. Update the ticket file: change **Status** to `done` (or `in-progress` if partially complete)
+4. Present a summary:
+   - **Milestone completed**: name and what was delivered
+   - **Verification gate**: what the user should see
    - Files created/modified (with full paths)
    - Test results (pass/fail counts)
    - Any items NOT implemented and why
-   - Any issues encountered and how they were resolved
    - Any TODOs or known limitations
-4. Mark all todos complete
+5. **Suggest comprehensive testing**:
+   - "To run comprehensive tests for this milestone, use: `/test-dev [paste the Test Coverage section from the ticket]`"
+   - The test-dev plugin will implement thorough test coverage using its specialized agents (test-explorer, test-implementer, test-reviewer, test-fixer)
+6. **Next milestone**: show the name and brief description of what comes next
+7. Mark all todos complete
 
 ---
 
 ## Important Guidelines
 
-- **Delegate all substantial code work to agents.** Implementation (Phase 3) goes to feature-implementer agents. Reviewer findings (Phase 6) go to the feature-fixer agent. You may only make trivial fixes yourself in Phase 4 (missing imports, typos) to get tests passing -- anything beyond that must be delegated.
-- **Never skip the exploration phase.** Understanding the codebase is essential for writing correct, convention-matching code.
-- **Match conventions exactly.** The implementer must copy the style of existing code, not invent new patterns.
-- **Run tests early and often.** Don't wait until the end to discover failures.
-- **One reviewer per file.** Never send multiple files to a single reviewer agent.
-- **Fix only what's reported.** The fixer should not refactor or "improve" beyond the findings.
-- **Be honest about failures.** If something can't be implemented correctly, document why rather than hiding it.
-- **Backend before frontend.** When items have dependencies, implement backend first so the API and data layer exist before the frontend is built.
-- **Always write tests.** Every backend implementation should include Pest tests. Every migration should have a relationship test. Every controller should have feature tests.
+- **One milestone at a time.** Each `/forge-dev` invocation implements exactly one milestone. Sequential — never skip ahead.
+- **Ticket is the source of truth.** The ticket's Behavior and Interface Contract sections define what to build. Follow them precisely.
+- **No ticket, no implementation.** If the ticket file doesn't exist, stop and tell the user to run `/forge-ticket` first.
+- **Verification gate is mandatory.** The user must confirm the feature works visually before proceeding.
+- **Backend before frontend within a milestone.** Backend completes before frontend starts.
+- **Delegate all substantial code work to agents.** You may only make trivial fixes (imports, typos) in Phase 4.
+- **Never skip exploration.** Understanding the codebase is essential for convention-matching code.
+- **Match conventions exactly.** Copy existing patterns, never invent new ones.
+- **One reviewer per file.** Never send multiple files to a single reviewer.
+- **Fix only what's reported.** The fixer must not refactor beyond the findings.
+- **Be honest about failures.** Document what couldn't be done rather than hiding it.
+- **Leverage test-dev for comprehensive testing.** forge-dev writes basic tests during implementation. For thorough coverage, suggest the user runs `/test-dev` with the ticket's Test Coverage section.
