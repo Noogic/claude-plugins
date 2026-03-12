@@ -89,11 +89,9 @@ After implementation completes:
 
 ---
 
-## Phase 4: Test & Verify
+## Phase 4: Sanity Check
 
-### Step 1: Automated Tests
-
-Run the tests created during implementation:
+Run the basic tests created during implementation and verify the build:
 
 ```bash
 php artisan test --filter=RelevantTestFile
@@ -109,28 +107,13 @@ npm run build
   - Re-run after each fix
 - If a test keeps failing after 3 fix attempts, comment it out with `// TODO: fix - [reason]` and note it
 
-### Step 2: Verification Gate (MANDATORY)
-
-Read the ticket's **Verify** section. For each item:
-
-- **Automated checks** → Run the full test suite and build
-- **Browser/visual checks** → Present the description to the user and ask them to confirm manually
-
-**Do NOT proceed until the user confirms the verification gate passes.**
-
-If the user reports issues:
-1. Analyze the issue
-2. Delegate fixes to a feature-fixer agent (do not fix substantial issues yourself)
-3. Re-run tests
-4. Re-verify with the user
-
-This is the most important checkpoint. It catches "nothing loads" and "wrong feature" before more work is piled on top.
+This is a quick check to catch broken code before investing in comprehensive testing.
 
 ---
 
 ## Phase 5: Comprehensive Testing
 
-After the verification gate passes, run comprehensive tests (unit, feature, and browser) in a **separate Claude session** to keep context clean. This uses the test-dev plugin's specialized agents.
+Run comprehensive tests (unit, feature, and browser) in a **separate Claude session** to keep context clean. This uses the test-dev plugin's specialized agents.
 
 ### Step 1: Prepare
 
@@ -151,14 +134,38 @@ Replace `[TICKET_FILE_PATH]` with the actual ticket path.
 ### Step 3: Verify
 
 After the subprocess completes:
-- Run `php artisan test` to confirm all tests pass
+- Run `php artisan test` to confirm all tests pass (unit, feature, AND browser)
 - Read the ticket file to check which Test Coverage items were checked off
 - If tests fail, attempt trivial fixes; for substantial failures, delegate to a feature-fixer agent
 - Note any test items that were NOT implemented
 
+**Browser tests are critical.** They verify the UI actually works — pages load, forms submit, navigation works. If browser tests pass, most of the verification gate is already covered.
+
 ---
 
-## Phase 6: Quality Review
+## Phase 6: Verification Gate (MANDATORY)
+
+By this point, unit, feature, and browser tests should all be passing. The automated tests cover functional correctness. This gate focuses on **what automation can't catch**: visual quality and user experience.
+
+Read the ticket's **Verify** section. For each item:
+
+- **Automated checks** → Already covered by Phase 4 and 5 tests. Confirm `php artisan test` and `npm run build` still pass.
+- **Visual/UX checks** → Present ONLY the visual and UX items to the user: layout, styling, responsiveness, transitions, overall feel. The browser tests already confirmed functional behavior (clicks, navigation, forms), so don't ask the user to re-verify those.
+
+Example of what to ask the user:
+- "Browser tests confirm navigation, forms, and CRUD all work. Please check: Does the layout look correct? Is the styling consistent with the rest of the app? Any visual issues?"
+
+**Do NOT proceed until the user confirms.**
+
+If the user reports issues:
+1. Analyze the issue
+2. Delegate fixes to a feature-fixer agent (do not fix substantial issues yourself)
+3. Re-run tests (including browser tests)
+4. Re-verify with the user
+
+---
+
+## Phase 7: Quality Review
 
 Launch **feature-reviewer agents in parallel** — one agent per created/modified file (including test files from Phase 5):
 
@@ -169,12 +176,12 @@ Wait for ALL reviewer agents to complete.
 
 After all reviewers complete:
 - Consolidate findings, filter to confidence >= 75
-- If no significant findings: skip Phase 7, go to Phase 8
-- If there ARE findings: present to user by severity, proceed to Phase 7
+- If no significant findings: skip Phase 8, go to Phase 9
+- If there ARE findings: present to user by severity, proceed to Phase 8
 
 ---
 
-## Phase 7: Fix Findings
+## Phase 8: Fix Findings
 
 **DO NOT fix findings yourself.** Launch a **feature-fixer agent** with:
 - All review findings (confidence >= 75)
@@ -186,7 +193,7 @@ After the fixer completes:
 
 ---
 
-## Phase 8: Finalize
+## Phase 9: Finalize
 
 1. Run the complete test suite:
    ```bash
@@ -217,7 +224,7 @@ After the fixer completes:
 - **One milestone at a time.** Each `/forge-dev` invocation implements exactly one milestone. Sequential — never skip ahead.
 - **Ticket is the source of truth.** The ticket's Behavior and Interface Contract sections define what to build. Follow them precisely.
 - **No ticket, no implementation.** If the ticket file doesn't exist, stop and tell the user to run `/forge-ticket` first.
-- **Verification gate is mandatory.** The user must confirm the feature works visually before proceeding.
+- **Verification gate is mandatory.** Browser tests handle functional verification; the user confirms visual quality and UX.
 - **Backend before frontend within a milestone.** Backend completes before frontend starts.
 - **Delegate all substantial code work to agents.** You may only make trivial fixes (imports, typos) in Phase 4.
 - **Never skip exploration.** Understanding the codebase is essential for convention-matching code.
@@ -225,4 +232,4 @@ After the fixer completes:
 - **One reviewer per file.** Never send multiple files to a single reviewer.
 - **Fix only what's reported.** The fixer must not refactor beyond the findings.
 - **Be honest about failures.** Document what couldn't be done rather than hiding it.
-- **Comprehensive testing is automated.** After the verification gate, forge-dev invokes test-dev in a separate session to implement all tests from the ticket's Test Coverage section (unit, feature, and browser).
+- **Comprehensive testing before verification.** forge-dev invokes test-dev in a separate session to implement all tests (unit, feature, browser) BEFORE the verification gate. Browser tests verify functional correctness so the user only needs to check visual/UX quality.
